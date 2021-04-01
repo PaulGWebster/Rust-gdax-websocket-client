@@ -1,13 +1,12 @@
 use std::thread;
-use std::net::{TcpListener, TcpStream, Shutdown};
-use std::io::{Read, Write};
-use std::sync::mpsc::{Sender, Receiver};
+use std::net::{TcpListener, TcpStream};
+use std::io::{Write};
 use std::time::Duration;
 
 extern crate redis;
 
 fn handle_client(mut stream: TcpStream) {
-    let data = [0 as u8; 50]; // using 50 byte buffer
+    // let data = [0 as u8; 50]; // using 50 byte buffer
 
     let homex = dirs::home_dir().unwrap().into_os_string().into_string().unwrap();
     let redis_pathx = format!("redis+unix://{}{}",homex,"/.tmp/gdax_runner/redis.sock");
