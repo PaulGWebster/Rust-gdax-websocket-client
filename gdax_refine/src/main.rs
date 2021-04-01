@@ -2,52 +2,56 @@ use std::thread;
 use std::net::{TcpListener, TcpStream, Shutdown};
 use std::io::{Read, Write};
 use std::sync::mpsc::{Sender, Receiver};
-use std::sync::mpsc;
-
-const WSCON: &'static str = "ws://127.0.0.1:8080";
+use std::time::Duration;
 
 extern crate redis;
 
-fn connect() -> redis::Connection {
-    let home = dirs::home_dir().expect("test").into_os_string().into_string().unwrap();
-    let redis_path = format!("redis+unix://{}{}",home,"/.tmp/gdax_runner/redis.sock");
-    redis::Client::open(redis_path)
-        .expect("Invalid connection URL")
-        .get_connection()
-        .expect("failed to connect to Redis")
-}
-
 fn handle_client(mut stream: TcpStream) {
-    let mut data = [0 as u8; 50]; // using 50 byte buffer
+    let data = [0 as u8; 50]; // using 50 byte buffer
 
-    let mut conn_set = connect();
-    redis::cmd("PSUBSCRIBE").arg("*").execute(&mut conn_set);
+    let homex = dirs::home_dir().unwrap().into_os_string().into_string().unwrap();
+    let redis_pathx = format!("redis+unix://{}{}",homex,"/.tmp/gdax_runner/redis.sock");
+    let mut redis_rx = redis::Client::open(redis_pathx).unwrap();
 
-    // let (tx, rx): (Sender<i32>, Receiver<i32>) = mpsc::channel();
-    // thread::spawn(move|| {
-    //     // connection succeeded
-    //     redis_connect()
-    // });
-    //redis::cmd("PSUBSCRIBE").arg("*").execute(&mut _redis);
+    let home = dirs::home_dir().unwrap().into_os_string().into_string().unwrap();
+    let redis_path = format!("redis+unix://{}{}",home,"/.tmp/gdax_runner/redis.sock");
 
-    while match stream.read(&mut data) {
-        Ok(size) => {
-            // echo everything!
-            stream.write(&data[0..size]).unwrap();
-            true
-        },
-        Err(_) => {
-            println!("An error occurred, terminating connection with {}", stream.peer_addr().unwrap());
-            stream.shutdown(Shutdown::Both).unwrap();
-            false
+    let client = redis::Client::open(redis_path).unwrap();
+    let mut con = client.get_connection().unwrap();
+    let mut pubsub = con.as_pubsub();
+    pubsub.psubscribe("*").unwrap();
+
+    loop {
+        let msg = match pubsub.get_message() {
+            Ok(message_rx_success) => {
+                message_rx_success
+            },
+            Err(_) => {
+                thread::sleep(Duration::from_millis(10));
+                continue;
+            }
+        };
+        let payload : String = msg.get_payload().unwrap();
+        let pkey = format!("{}:{}",msg.get_channel_name(), payload);
+
+        let json_packet: String = redis::cmd("GET").arg(pkey).query(&mut redis_rx).unwrap();
+
+        match stream.write(format!("{}\n",json_packet).as_bytes()) {
+            Ok(_) => {
+                // ? Errr do nothing it worked?
+            },
+            Err(e) => {
+                println!("Failed to send data: {}", e);
+                break;
+            }
         }
-    } {}
+    }
 }
 
 fn main() {
-    let listener = TcpListener::bind("0.0.0.0:10080").unwrap();
+    let listener = TcpListener::bind("0.0.0.0:10081").unwrap();
     // accept connections and process them, spawning a new thread for each one
-    println!("Server listening on port 10080");
+    println!("Server listening on port 10081");
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
