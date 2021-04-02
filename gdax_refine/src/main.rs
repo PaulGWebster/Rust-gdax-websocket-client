@@ -57,9 +57,9 @@ fn handle_client(mut stream: TcpStream) {
 }
 
 fn main() {
-    let listener = TcpListener::bind("0.0.0.0:10081").unwrap();
+    let listener = TcpListener::bind("127.0.0.1:10080").unwrap();
     // accept connections and process them, spawning a new thread for each one
-    println!("Server listening on port 10081");
+    println!("Server listening on localhost 10080");
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
