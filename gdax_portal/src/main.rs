@@ -136,10 +136,23 @@ fn main() {
 
                 // Add a pubsub for the currency if one does not exist
                 let pkey = format!("{}:{}",product_id,message_sequence);
+                let pkey_clone = pkey.clone();
 
                 // Set it in the main set
-                redis::cmd("SET").arg(pkey).arg(&message).execute(&mut conn_set);
-                redis::cmd("PUBLISH").arg(product_id).arg(message_sequence).execute(&mut conn_publish);
+                let json_set_test_response: i8 = match redis::cmd("SETNX").arg(pkey).arg(&message).query(&mut conn_set) {
+                    Ok(json_test) => {
+                        //println!("Success setting REDIS DATA: {}, error was: {}", pkey_clone, json_test);
+                        json_test
+                    },
+                    Err(e) => {
+                        println!("Failed to SET REDIS DATA: {}, error was: {}", pkey_clone, e);
+                        continue;
+                    }
+                };
+
+                if json_set_test_response == 1 {
+                    redis::cmd("PUBLISH").arg(product_id).arg(message_sequence).execute(&mut conn_publish);
+                }
             }
         }
     });

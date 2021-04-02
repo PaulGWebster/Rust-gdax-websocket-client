@@ -18,7 +18,7 @@ fn handle_client(mut stream: TcpStream) {
     let client = redis::Client::open(redis_path).unwrap();
     let mut con = client.get_connection().unwrap();
     let mut pubsub = con.as_pubsub();
-    pubsub.psubscribe("*").unwrap();
+    pubsub.psubscribe("BTC-US*").unwrap();
 
     loop {
         let msg = match pubsub.get_message() {
@@ -26,14 +26,28 @@ fn handle_client(mut stream: TcpStream) {
                 message_rx_success
             },
             Err(_) => {
-                thread::sleep(Duration::from_millis(10));
+                thread::sleep(Duration::from_millis(1));
                 continue;
             }
         };
         let payload : String = msg.get_payload().unwrap();
-        let pkey = format!("{}:{}",msg.get_channel_name(), payload);
+        let mut pkey = format!("{}:{}",msg.get_channel_name(), payload);
 
-        let json_packet: String = redis::cmd("GET").arg(pkey).query(&mut redis_rx).unwrap();
+        // Create a clone for debug messages
+        let mut pketClone = pkey.clone();
+
+        // Drop duplicates
+        
+
+        let json_packet: String = match redis::cmd("GET").arg(pkey).query(&mut redis_rx) {
+            Ok(json_test) => {
+                json_test
+            },
+            Err(e) => {
+                println!("Failed to read REDIS DATA: {}", pketClone);
+                continue;
+            }
+        };
 
         match stream.write(format!("{}\n",json_packet).as_bytes()) {
             Ok(_) => {
