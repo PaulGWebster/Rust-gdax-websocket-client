@@ -31,20 +31,15 @@ fn handle_client(mut stream: TcpStream) {
             }
         };
         let payload : String = msg.get_payload().unwrap();
-        let mut pkey = format!("{}:{}",msg.get_channel_name(), payload);
-
-        // Create a clone for debug messages
-        let mut pketClone = pkey.clone();
+        let pkey = format!("{}:{}",msg.get_channel_name(), payload);
 
         // Drop duplicates
-        
-
         let json_packet: String = match redis::cmd("GET").arg(pkey).query(&mut redis_rx) {
             Ok(json_test) => {
                 json_test
             },
             Err(e) => {
-                println!("Failed to read REDIS DATA: {}", pketClone);
+                println!("Failed to read REDIS DATA: {}", e);
                 continue;
             }
         };

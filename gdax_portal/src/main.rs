@@ -76,7 +76,12 @@ fn main() {
         let sub_path = format!("{}{}",home,"/.tmp/gdax_runner/subscription.json");
         // Send subscribe packet
         let subscribe_text = fs::read_to_string(sub_path).expect("Something went wrong reading the file");
-        tx_1.send(OwnedMessage::Text(subscribe_text));
+        match tx_1.send(OwnedMessage::Text(subscribe_text)) {
+            Ok(m) => m,
+            Err(e) => {
+                println!("WSB RX ERROR MAIN {:?}", e);
+            }
+        };
 
         // Receive loop
         for message in receiver.incoming_messages() {
